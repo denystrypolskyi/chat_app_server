@@ -1,18 +1,41 @@
 <?php
 require_once("common.php");
 
-$chatRoomId = $_GET["selectedChatId"];
+try {
+    if (!isset($_GET["selectedChatId"])) {
+        $response = [
+            "status" => "error",
+            "message" => "selectedChatId not specified in the request",
+            "messages" => []
+        ];
+        echo json_encode($response);
+        exit;
+    }
 
-$stmt = $pdo->prepare("SELECT * FROM messages WHERE chat_room_id = :chatRoomId");
-$stmt->bindParam(":chatRoomId", $chatRoomId);
-$stmt->execute();
+    $chatRoomId = $_GET["selectedChatId"];
 
-$messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT * FROM messages WHERE chat_room_id = :chatRoomId");
+    $stmt->bindParam(":chatRoomId", $chatRoomId);
+    $stmt->execute();
 
-if (count($messages) > 0) {
-    $response = ["status" => "success", "messages" => $messages];
-} else {
-    $response = ["status" => "success", "messages" => []];
+    $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $messageCount = count($messages);
+
+    $response = [
+        "status" => "success",
+        "messages" => $messageCount > 0 ? $messages : [],
+        "message" => $messageCount > 0 ? "" : "No messages yet"
+    ];
+    echo json_encode($response);
+    exit;
+} catch (PDOException $e) {
+    $response = [
+        "status" => "error",
+        "message" => "Database error: " . $e->getMessage(),
+        "messages" => []
+    ];
+    echo json_encode($response);
+    exit;
 }
-
-echo json_encode($response);
+?>

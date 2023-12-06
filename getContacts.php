@@ -1,18 +1,41 @@
 <?php
 require_once("common.php");
 
-$loggedUserId = $_GET["loggedUserId"];
+try {
+    if (!isset($_GET["loggedUserId"])) {
+        $response = [
+            "status" => "error",
+            "message" => "loggedUserId not specified in the request",
+            "contacts" => []
+        ];
+        echo json_encode($response);
+        exit;
+    }
 
-$stmt = $pdo->prepare("SELECT * FROM users WHERE id != :id"); 
-$stmt->bindParam(":id", $loggedUserId);
-$stmt->execute();
+    $loggedUserId = $_GET["loggedUserId"];
 
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id != :id");
+    $stmt->bindParam(":id", $loggedUserId);
+    $stmt->execute();
 
-if (count($rows) > 0) {
-    $response = ["status" => "success", "contacts" => $rows];
-} else {
-    $response = ["status" => "error", "message" => "No contacts found"];
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $contactCount = count($rows);
+
+    $response = [
+        "status" => "success",
+        "contacts" => $contactCount > 0 ? $rows : [],
+        "message" => $contactCount > 0 ? "" : "No contacts found"
+    ];
+    echo json_encode($response);
+    exit;
+} catch (PDOException $e) {
+    $response = [
+        "status" => "error",
+        "message" => "Database error: " . $e->getMessage(),
+        "contacts" => []
+    ];
+    echo json_encode($response);
+    exit;
 }
-
-echo json_encode($response);
+?>
