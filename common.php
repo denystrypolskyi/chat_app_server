@@ -10,4 +10,5 @@ try {
 } catch (PDOException $e) {
     $response = ["status" => "error", "message" => "Database connection failed: " . $e->getMessage()];
     echo json_encode($response);
+    exit();
 }
