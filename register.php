@@ -1,8 +1,14 @@
 <?php
 require_once("common.php");
+require 'vendor/autoload.php';
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+header('Content-Type: application/json');
 
-if (empty(trim($_POST["username"])) || empty(trim($_POST["email"])) || empty(trim($_POST["password"]))) {
-    $response = ["status" => "error", "message" => "Username, email, or password not specified. Please try again."];
+
+if (empty(trim($_POST["username"])) || empty(trim($_POST["email"])) || empty(trim($_POST["password"])) || !isset($_FILES["uploadedFile"])) {
+    $response = ["status" => "error", "message" => "Username, email, password, or profile picture not specified. Please try again."];
     echo json_encode($response);
     exit;
 }
@@ -31,7 +37,7 @@ if (!$uppercase || !$lowercase || !$number || !$specialChars || strlen($password
 $hash = password_hash($password, PASSWORD_DEFAULT);
 
 $file = $_FILES["uploadedFile"];
-$allowedExtensions = array("jpg", "jpeg");
+$allowedExtensions = array("jpg", "jpeg", "png");
 
 $fileName = $file["name"];
 $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
@@ -66,19 +72,52 @@ if ($stmt->rowCount() > 0) {
     exit;
 }
 
-$insertStmt = $pdo->prepare("INSERT INTO users (username, email, avatar, password) VALUES (:username, :email, :avatar, :hash)");
+$verificationCode = mt_rand(100000, 999999);
+
+$isVerified = false;
+
+$insertStmt = $pdo->prepare("INSERT INTO users (username, email, avatar, password, verification_code, is_verified) VALUES (:username, :email, :avatar, :hash, :verification_code, :is_verified)");
 $insertStmt->bindParam(":username", $username);
 $insertStmt->bindParam(":email", $email);
 $insertStmt->bindParam(":avatar", $fileName);
 $insertStmt->bindParam(":hash", $hash);
+$insertStmt->bindParam(":verification_code", $verificationCode, PDO::PARAM_INT);
+$insertStmt->bindParam(":is_verified", $isVerified, PDO::PARAM_BOOL);
 
 if ($insertStmt->execute()) {
-    $response = ["status" => "success", "message" => "Account created."];
+    try {
+        $mail = new PHPMailer(true);
+        $mail->SMTPDebug = 0;
+        $mail->isSMTP();                                            
+        $mail->Host       = 'smtp.gmail.com';                   
+        $mail->SMTPAuth   = true;                                 
+        $mail->Username   = 'dennistripolskiy@gmail.com';                    
+        $mail->Password   = 'gegpebuyyqivgloh';                              
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            
+        $mail->Port       = 465;                                   
+    
+        $mail->setFrom('dennistripolskiy@gmail.com');
+        $mail->addAddress($email);    
+    
+        $mail->isHTML(true);  
+        $mail->Subject = 'Account Verification';
+    
+        $verificationLink = "http://localhost/server/emailVerification.php?token=$verificationCode"; 
+        $mail->Body = "Thank you for signing up! Please click the following link to verify your account: <a href='{$verificationLink}'>Verify Account</a>";   
+    
+        $mail->send();
+    } catch (Exception $e) {
+        $response = ["status" => "error", "message" => "Message could not be sent. Mailer Error: {$mail->ErrorInfo}"];
+        echo json_encode($response);
+        exit();
+    }
+
+    $response = ["status" => "success", "message" => "Account creation successful! Instructions on how to proceed have been sent to your email."];
     echo json_encode($response);
-    exit;
+    exit();
 } else {
     $response = ["status" => "error", "message" => "Unexpected error. Please try again."];
     echo json_encode($response);
-    exit;
+    exit();
 }
 ?>

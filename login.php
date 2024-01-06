@@ -23,14 +23,21 @@ try {
 
     if ($stmt->rowCount() == 1) {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        $verified = password_verify($password, $row["password"]);
 
-        if ($verified) {
-            $response = ["status" => "success", "loggedUserId" => $row["id"], "avatar" => $row["avatar"]];
-            echo json_encode($response);
-            exit;
+        if ($row["is_verified"]) {
+            $verified = password_verify($password, $row["password"]);
+
+            if ($verified) {
+                $response = ["status" => "success", "loggedUserId" => $row["id"], "avatar" => $row["avatar"]];
+                echo json_encode($response);
+                exit;
+            } else {
+                $response = ["status" => "error", "message" => "Password is not correct. Please try again."];
+                echo json_encode($response);
+                exit;
+            }
         } else {
-            $response = ["status" => "error", "message" => "Password is not correct. Please try again."];
+            $response = ["status" => "error", "message" => "Account not verified. Please activate your account through the received email."];
             echo json_encode($response);
             exit;
         }
@@ -44,6 +51,4 @@ try {
     echo json_encode($response);
     exit;
 }
-
-echo json_encode($response);
 ?>
